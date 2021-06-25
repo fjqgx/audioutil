@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>AudioBufferPlayer Test</title>
+    <script src="../dist/audioutil.js" ></script>
+  </head>
+  <body>
+    <audio id="audio" src="./test.mp3" playbackRate=2.0 controls preload="auto"></audio>
+
+    <p>
+      音量：<input id="volume" type="range" value="50" >
+      静音：<input type="checkbox" id="mute" >
+
+      <!-- 播放速率: 0.5<input id="rateRange" type="range" min="0.5" max="2.0" value="1.0" step="0.1"  > 2.0 -->
+    </p>
+    
+    
+    
+    <p>
+      <span>进度条 0</span>
+      <input id="audioRange" type="range" value="0" >
+      <span id="audiomax">-1</span>
+      <button id="audioPlayBtn">播放</button>
+      <button id="pauseBtn">暂停</button>
+      <button id="resumeBtn">恢复</button>
+      <button id="test">测试</button>
+
+    </p>
+  </body>
+  <script>
+    let audioTrackBtn = document.getElementById("playAudioTrack");
+    let range = document.getElementById("volume");
+    let mute = document.getElementById("mute");
+    // let rateRange = document.getElementById("rateRange");
+    let audio = document.getElementById("audio");
+    let audioBufferPlayer = new AudioBufferPlayer();
+    audioBufferPlayer.on("autoPlayFail", () => {
+      console.log("autoplay fail")
+    })
+    audioBufferPlayer.on("ended", () => {
+      console.log("play end");
+    })
+    let audioUtil = new AudioMediaStreamPlayer();
+    let audioMixer = new AudioMixer();
+    
+   
+
+    ////////////
+    let audioRange = document.getElementById("audioRange");
+    let audiomax = document.getElementById("audiomax");
+    let audioPlayBtn = document.getElementById("audioPlayBtn");
+    let pauseBtn = document.getElementById("pauseBtn");
+    let resumeBtn = document.getElementById("resumeBtn");
+
+    let reocrder = null;
+
+    setInterval(() => {
+      console.log(audioBufferPlayer.currentTime);
+      if (audioBufferPlayer.duration > 0) {
+        audioRange.min = 0;
+        audioRange.max = audioBufferPlayer.duration;
+        audiomax.innerText = audioBufferPlayer.duration;
+        audioRange.value = audioBufferPlayer.currentTime;
+      }
+      
+    }, 1000)
+
+    
+
+    // rateRange.onchange = () => {
+    //   audioBufferPlayer.playbackRate = Number(rateRange.value);
+    // }
+
+    function loadAudioFile(url) {
+        var xhr = new XMLHttpRequest(); //通过XHR下载音频文件
+        xhr.open('GET', url, true);
+        xhr.responseType = 'arraybuffer';
+        xhr.onload = function(e) { //下载完成
+            audioBufferPlayer.play(this.response);
+        };
+        xhr.send();
+    }
+    
+    range.oninput = () => {
+      audioBufferPlayer.volume = range.value / 100;
+    }
+
+    mute.onchange = () => {
+      if (mute.checked) {
+        audioBufferPlayer.mute = true;
+      } else {
+        audioBufferPlayer.mute = false;
+      }
+    }
+
+    audioRange.onchange = () => {
+      audioBufferPlayer.currentTime = Number(audioRange.value);
+    }
+
+    audioPlayBtn.addEventListener("click", () => {
+      loadAudioFile('./test.mp3');
+    })
+
+    pauseBtn.addEventListener('click', () => {
+      audioBufferPlayer.pause();
+    })
+
+    resumeBtn.addEventListener('click', () => {
+      audioBufferPlayer.resume();
+    })
+
+  </script>
+</html>

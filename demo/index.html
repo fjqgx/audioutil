@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Device Check</title>
+    <script src="../dist/audioutil.js" ></script>
+  </head>
+  <body>
+    <audio id="audio" src="./test.mp3" controls preload="auto"></audio>
+
+  
+    <input id="volume" type="range" value="50" >
+
+    静音<input type="checkbox" id="mute" >
+    <button id="play">play</button>
+    <button id="playAudioTrack" >播放AudioTrack</button>
+    <button id="test">测试</button>
+    <button id="recordstart">开始录音</button>
+    <button id="recordend">停止录音</button>
+    <p>
+      <span>0</span>
+      <input id="audioRange" type="range" value="50" >
+      <span id="audiomax">-1</span>
+      <button id="audioPlayBtn">播放</button>
+      <button id="pauseBtn">暂停</button>
+      <button id="resumeBtn">恢复</button>
+
+    </p>
+  </body>
+  <script>
+    let audioTrackBtn = document.getElementById("playAudioTrack");
+    let range = document.getElementById("volume");
+    let mute = document.getElementById("mute");
+    let audio = document.getElementById("audio");
+    let btn = document.getElementById("play");
+    let audioBufferPlayer = new AudioBufferPlayer();
+    audioBufferPlayer.on("autoPlayFail", () => {
+      console.log("autoplay fail")
+    })
+    audioBufferPlayer.on("ended", () => {
+      console.log("play end");
+    })
+    let audioUtil = new AudioMediaStreamPlayer();
+    let audioMixer = new AudioMixer();
+    let startRecord = document.getElementById("recordstart");
+    let endRecord = document.getElementById("recordend");
+    let testBtn = document.getElementById("test");
+
+    ////////////
+    let audioRange = document.getElementById("audioRange");
+    let audiomax = document.getElementById("audiomax");
+    let audioPlayBtn = document.getElementById("audioPlayBtn");
+    let pauseBtn = document.getElementById("pauseBtn");
+    let resumeBtn = document.getElementById("resumeBtn");
+    
+    audioTrackBtn.addEventListener("click", () => {
+      navigator.mediaDevices.getUserMedia({audio: true}).then((mediastream) => {
+      
+        audioMixer.startMix(mediastream, audioBufferPlayer).then((newStream) => {
+          audio.srcObject = newStream;
+          audio.play();
+        })
+        
+
+      }).catch((err) => {
+
+      })
+    })
+
+    let reocrder = null;
+
+    setInterval(() => {
+      console.log(audioBufferPlayer.currentTime);
+      if (audioBufferPlayer.duration > 0) {
+        audioRange.min = 0;
+        audioRange.max = audioBufferPlayer.duration;
+        audiomax.innerText = audioBufferPlayer.duration;
+        audioRange.value = audioBufferPlayer.currentTime;
+      }
+      
+    }, 1000)
+
+    testBtn.addEventListener("click", () => {
+      // loadAudioFile('http://127.0.0.1:8080/demo/test.mp3');
+      // audioMixer.stopMix();
+      audioBufferPlayer.playbackRate = 2.0;
+    })
+
+    
+    
+    btn.addEventListener("click", () => {
+      // audioUtil.play(audio);
+    })
+
+    function loadAudioFile(url) {
+        var xhr = new XMLHttpRequest(); //通过XHR下载音频文件
+        xhr.open('GET', url, true);
+        xhr.responseType = 'arraybuffer';
+        xhr.onload = function(e) { //下载完成
+            audioBufferPlayer.play(this.response);
+        };
+        xhr.send();
+    }
+    
+    range.oninput = () => {
+      if (audioBufferPlayer) {
+        audioBufferPlayer.volume = range.value / 100;
+      }
+    }
+
+    mute.onchange = () => {
+      if (mute.checked) {
+        audioUtil.mute = true;
+      } else {
+        audioUtil.mute = false;
+      }
+    }
+
+    audioRange.onchange = () => {
+      if (audioBufferPlayer) {
+        audioBufferPlayer.currentTime = Number(audioRange.value);
+        console.log('seek:', audioRange.value);
+      }
+    }
+
+    audioPlayBtn.addEventListener("click", () => {
+      loadAudioFile('./test.mp3');
+    })
+
+    pauseBtn.addEventListener('click', () => {
+      audioBufferPlayer.pause();
+    })
+
+    resumeBtn.addEventListener('click', () => {
+      audioBufferPlayer.resume();
+    })
+
+  </script>
+</html>
