@@ -31,13 +31,15 @@ export class AudioBufferPlayer extends BasePlayer {
   set currentTime (value: number) {
     if (this.sourceNode && this.arrayBuffer) {
       this.playbackTime = value / 1000;
-      if (value < 0 || value >= this.duration) {
-        this.stop();
-        this.playerState = PlayerState.End;
+      if (value < 0) {
         this.emit("error", {
           code: ErrorCode.ERROR_PLAYTIME_ERROR,
           reason: "currentTime out of range"
         })
+      } else if (value >= this.duration) {
+        this.stop();
+        this.playerState = PlayerState.End;
+        this.emit("ended");
       } else {
         this.stop();
         this.initPlay(this.arrayBuffer);
@@ -166,12 +168,15 @@ export class AudioBufferPlayer extends BasePlayer {
       }
       this.arrayBuffer = buffer;
       (this.sourceNode as AudioBufferSourceNode).buffer = this.arrayBuffer;
-      if (this.playbackTime < 0 || (this.playbackTime * 1000 > this.duration)) {
+      if (this.playbackTime < 0) {
         this.playerState = PlayerState.End;
         this.emit("error", {
           code: ErrorCode.ERROR_PLAYTIME_ERROR,
           reason: "playTime out of range"
         })
+      } else if (this.playbackTime * 1000 > this.duration) {
+        this.playerState = PlayerState.End;
+        this.emit("ended");
       } else {
         this.playNode();
       }
