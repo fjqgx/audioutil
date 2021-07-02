@@ -5,15 +5,58 @@
     <script src="../dist/audioutil.js" ></script>
   </head>
   <body>
-    <audio id="audio" src="./test.mp3" playbackRate=2.0 controls preload="auto"></audio>
-    <button id="getMicBtn">获取麦克风</button>
+    <!-- <audio id="audio" src="./test.mp3" playbackRate=2.0 controls preload="auto"></audio> -->
+    <p>
+      <button id="getMicBtn">获取麦克风</button>
+      音量 0 <input type="range" id="volumeRange" > 1.0
+      <button id="stopBtn">停止</button>
+      静音 <input type="checkbox" id="muteBtn">
+      统计audiolevel<input type="checkbox" id="audioLevelBtn" >
+    </p>
+    
   </body>
   <script>
+    let audiomediastreamPlayer = new AudioMediaStreamPlayer();
+    audiomediastreamPlayer.on("audioLevel", (level) => {
+      console.log('level:', level);
+    })
     let getMicBtn = document.getElementById("getMicBtn");
+    let volumeRange = document.getElementById("volumeRange");
+    let stopBtn = document.getElementById("stopBtn");
+    let muteBtn = document.getElementById("muteBtn");
+    let audioLevelBtn = document.getElementById("audioLevelBtn");
 
     getMicBtn.addEventListener('click', () => {
-      
+      navigator.mediaDevices.getUserMedia({audio: true}).then((mediastream) => {
+        audiomediastreamPlayer.play(mediastream);
+      }).catch((err) => {
+
+      })
     })
+
+    volumeRange.onchange = () => {
+      audiomediastreamPlayer.volume = volumeRange.value / 100;
+    }
+
+    stopBtn.addEventListener('click', () => {
+      audiomediastreamPlayer.stop();
+    })
+
+    muteBtn.onchange = () => {
+      if (muteBtn.checked) {
+        audiomediastreamPlayer.mute = true;
+      } else {
+        audiomediastreamPlayer.mute = false
+      }
+    }
+
+    audioLevelBtn.onchange = () => {
+      if (audioLevelBtn.checked) {
+        audiomediastreamPlayer.startAudioLevel();
+      } else {
+        audiomediastreamPlayer.stopAudioLevel();
+      }
+    }
 
   </script>
 </html>

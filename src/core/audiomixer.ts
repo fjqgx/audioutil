@@ -15,16 +15,14 @@ export class AudioMixer {
 
   constructor() {
     this.audioContext = AudioUtil.getAudioContext();
-    if (this.audioContext) {
-      this.mediaStreamDest = this.audioContext.createMediaStreamDestination();
-    }
   }
 
 
   public startMix (mediastream: MediaStream, player: AudioBufferPlayer): Promise<MediaStream> {
     return new Promise ((resolve, reject) => {
-      if (this.audioContext && this.mediaStreamDest) {
+      if (this.audioContext) {
         this.mediaStreamSource = this.audioContext.createMediaStreamSource(mediastream);
+        this.mediaStreamDest = this.audioContext.createMediaStreamDestination();
         this.musicNode = player.getGainNode();
 
         if (this.musicNode) {

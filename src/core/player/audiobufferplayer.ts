@@ -14,7 +14,7 @@ export class AudioBufferPlayer extends BasePlayer {
   }
 
   get isPlaying (): boolean {
-    return this.playerState === PlayerState.Playing;
+    return this.playerState === PlayerState.Playing || this.playerState === PlayerState.Loading;
   }
 
   /**
@@ -31,8 +31,17 @@ export class AudioBufferPlayer extends BasePlayer {
   set currentTime (value: number) {
     if (this.sourceNode && this.arrayBuffer) {
       this.playbackTime = value / 1000;
-      this.stop();
-      this.initPlay(this.arrayBuffer);
+      if (value < 0 || value >= this.duration) {
+        this.stop();
+        this.playerState = PlayerState.End;
+        this.emit("error", {
+          code: ErrorCode.ERROR_PLAYTIME_ERROR,
+          reason: "currentTime out of range"
+        })
+      } else {
+        this.stop();
+        this.initPlay(this.arrayBuffer);
+      }
     } 
   }
 
@@ -65,28 +74,40 @@ export class AudioBufferPlayer extends BasePlayer {
 
   /**
    * 播放
+   * @param source    // 音乐原始文件
+   * @param playTime  // 开始播放的时间点，ms。默认是0
    * @returns 
    */
-  public play (source: ArrayBuffer): Promise<void> {
+  public play (source: ArrayBuffer, playTime: number = 0): Promise<void> {
     return new Promise ((resolve, reject) => {
-      if (this.audioContext) {
-        if (this.isArrayBuffer(source)) {
-          this.playArrayBuffer(source).then(() => {
+      if (this.playerState === PlayerState.Loading) {
+        setTimeout(() => {
+          this.play(source, playTime).then(() => {
             resolve();
-          }).catch((err) => {
-            reject(err);
           })
+        }, 100)
+      } else {
+        this.playbackTime = playTime / 1000;
+        this.stop();
+        if (this.audioContext) {
+          if (this.isArrayBuffer(source)) {
+            this.playArrayBuffer(source).then(() => {
+              resolve();
+            }).catch((err) => {
+              reject(err);
+            })
+          } else {
+            reject({
+              code: ErrorCode.ERROR_NOT_ARRAYBUFFER,
+              message: "source not ArrayBuffer"
+            })
+          }
         } else {
           reject({
-            code: ErrorCode.ERROR_NOT_ARRAYBUFFER,
-            message: "source not ArrayBuffer"
-          })
+            code: ErrorCode.ERROR_NOTSUPPORT_AUDIOCONTEXT,
+            message: "not support AudioContext"
+          });
         }
-      } else {
-        reject({
-          code: ErrorCode.ERROR_NOTSUPPORT_AUDIOCONTEXT,
-          message: "not support AudioContext"
-        });
       }
     })
   }
@@ -108,15 +129,7 @@ export class AudioBufferPlayer extends BasePlayer {
       (this.sourceNode as AudioBufferSourceNode).stop();
       this.sourceNode = undefined;
     }
-    if (this.gainNode) {
-      this.gainNode.disconnect();
-      this.gainNode = undefined;
-    }
-    if (this.analyser) {
-      this.analyser.disconnect();
-      this.analyser = undefined;
-    }
-    this.playerState = PlayerState.Stop;
+    super.stop();
   }
 
   private isArrayBuffer (source: any): boolean {
@@ -124,15 +137,18 @@ export class AudioBufferPlayer extends BasePlayer {
   }
 
   private playArrayBuffer (source: ArrayBuffer): Promise<void> {
+    this.playerState = PlayerState.Loading;
     return new Promise((resolve, reject) => {
       if (this.audioContext) {
         this.audioContext.decodeAudioData(source, (buffer: AudioBuffer) => {
           this.initPlay(buffer);
           resolve();
         }, (err) => {
+          this.playerState = PlayerState.End;
           reject(err);
         })
       } else {
+        this.playerState = PlayerState.End;
         reject({
           code: ErrorCode.ERROR_NOTSUPPORT_AUDIOCONTEXT,
           message: "not support AudioContext"
@@ -142,7 +158,6 @@ export class AudioBufferPlayer extends BasePlayer {
   }
 
   private initPlay (buffer: AudioBuffer): void {
-    
     if (this.audioContext) {
       this.sourceNode = this.audioContext.createBufferSource();
       
@@ -151,9 +166,16 @@ export class AudioBufferPlayer extends BasePlayer {
       }
       this.arrayBuffer = buffer;
       (this.sourceNode as AudioBufferSourceNode).buffer = this.arrayBuffer;
-      if (this.sourceNode) {
+      if (this.playbackTime < 0 || (this.playbackTime * 1000 > this.duration)) {
+        this.playerState = PlayerState.End;
+        this.emit("error", {
+          code: ErrorCode.ERROR_PLAYTIME_ERROR,
+          reason: "playTime out of range"
+        })
+      } else {
         this.playNode();
       }
+      
     }
   }
 
@@ -162,6 +184,7 @@ export class AudioBufferPlayer extends BasePlayer {
     super.playNode();
     if (this.sourceNode) {
       let node: AudioBufferSourceNode = (this.sourceNode as AudioBufferSourceNode); 
+      
       node.start(0, this.playbackTime);
       this.playerState = PlayerState.Playing;
       if (node.context) {

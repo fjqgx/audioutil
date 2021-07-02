@@ -13,7 +13,7 @@
     静音<input type="checkbox" id="mute" >
     <button id="play">play</button>
     <button id="playAudioTrack" >播放AudioTrack</button>
-    <button id="test">测试</button>
+    <button id="test">停止混音</button>
     <button id="recordstart">开始录音</button>
     <button id="recordend">停止录音</button>
     <p>
@@ -23,6 +23,7 @@
       <button id="audioPlayBtn">播放</button>
       <button id="pauseBtn">暂停</button>
       <button id="resumeBtn">恢复</button>
+      <button id="stopBtn">停止</button>
 
     </p>
   </body>
@@ -39,6 +40,11 @@
     audioBufferPlayer.on("ended", () => {
       console.log("play end");
     })
+    audioBufferPlayer.on("error", (err) => {
+      console.log("err:", err);
+    })
+
+    let localMediaStream = null;
     let audioUtil = new AudioMediaStreamPlayer();
     let audioMixer = new AudioMixer();
     let startRecord = document.getElementById("recordstart");
@@ -51,19 +57,25 @@
     let audioPlayBtn = document.getElementById("audioPlayBtn");
     let pauseBtn = document.getElementById("pauseBtn");
     let resumeBtn = document.getElementById("resumeBtn");
+    let stopBtn = document.getElementById("stopBtn");
     
     audioTrackBtn.addEventListener("click", () => {
-      navigator.mediaDevices.getUserMedia({audio: true}).then((mediastream) => {
-      
-        audioMixer.startMix(mediastream, audioBufferPlayer).then((newStream) => {
-          audio.srcObject = newStream;
-          audio.play();
+      if (!localMediaStream) {
+        navigator.mediaDevices.getUserMedia({audio: true}).then((mediastream) => {
+          localMediaStream = mediastream;
+          audioMixer.startMix(mediastream, audioBufferPlayer).then((newStream) => {
+            audio.srcObject = newStream;
+            audio.play();
+          })
+        }).catch((err) => {
         })
-        
-
-      }).catch((err) => {
-
-      })
+      } else {
+        audioMixer.startMix(localMediaStream, audioBufferPlayer).then((newStream) => {
+            audio.srcObject = newStream;
+            audio.play();
+          })
+      }
+      
     })
 
     let reocrder = null;
@@ -81,8 +93,8 @@
 
     testBtn.addEventListener("click", () => {
       // loadAudioFile('http://127.0.0.1:8080/demo/test.mp3');
-      // audioMixer.stopMix();
-      audioBufferPlayer.playbackRate = 2.0;
+      audioMixer.stopMix();
+      // audioBufferPlayer.playbackRate = 2.0;
     })
 
     
@@ -109,9 +121,9 @@
 
     mute.onchange = () => {
       if (mute.checked) {
-        audioUtil.mute = true;
+        audioBufferPlayer.mute = true;
       } else {
-        audioUtil.mute = false;
+        audioBufferPlayer.mute = false;
       }
     }
 
@@ -132,6 +144,10 @@
 
     resumeBtn.addEventListener('click', () => {
       audioBufferPlayer.resume();
+    })
+
+    stopBtn.addEventListener('click', () => {
+      audioBufferPlayer.stop();
     })
 
   </script>

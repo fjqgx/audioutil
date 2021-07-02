@@ -6,6 +6,7 @@ interface IAudioBufferPlayListener {
   autoPlayFail: (err: any) => void;
   ended: () => void;
   audioLevel: (level: number) => void;
+  error: (err: {code: ErrorCode}) => void;
 }
 
 export enum PlayerState {
@@ -27,6 +28,8 @@ export class BasePlayer extends EventEmitter<IAudioBufferPlayListener> {
   protected audioVolume: number;
   protected audioMuted: boolean;
   protected playerState: PlayerState = PlayerState.Init;
+  protected timeDomainData?: Uint8Array;
+  protected audioLevelTimerId: number = 0;
 
   constructor() {
     super();
@@ -37,6 +40,8 @@ export class BasePlayer extends EventEmitter<IAudioBufferPlayListener> {
     this.audioContext = AudioUtil.getAudioContext();
     if (this.audioContext) {
       this.gainNode = this.audioContext.createGain();
+      this.analyser = this.audioContext.createAnalyser();
+      this.timeDomainData = new Uint8Array(this.analyser.frequencyBinCount);
     }
     
   }
@@ -65,6 +70,10 @@ export class BasePlayer extends EventEmitter<IAudioBufferPlayListener> {
     }
   }
 
+  get state(): PlayerState {
+    return this.playerState;
+  }
+
   /**
    * 用于自动播放失败后的恢复播放
    */
@@ -78,25 +87,56 @@ export class BasePlayer extends EventEmitter<IAudioBufferPlayListener> {
     return false;
   }
 
-  protected playNode (): void {
-    if (this.audioContext && this.sourceNode && this.gainNode) {
+  /**
+   * 停止播放
+   */
+   public stop (): void {
+    
+    if (this.gainNode) {
+      this.gainNode.disconnect();
+    }
+    if (this.analyser) {
+      this.analyser.disconnect();
+    }
+    this.playerState = PlayerState.Stop;
+  }
+  
+  /**
+   * 开始统计audiolevel
+   * @param duration 
+   * @returns 
+   */
+  public startAudioLevel (duration: number = 500): boolean {
+      this.audioLevelTimerId = window.setInterval(() => {
+      let max: number = 0;
+      if (this.analyser && this.timeDomainData) {
+        this.analyser.getByteTimeDomainData(this.timeDomainData);
+        for (let i: number = 0; i < this.timeDomainData.length; ++i) {
+          max = Math.max(max, Math.abs(this.timeDomainData[i] - 128));
+        }
+      }
+      this.emit("audioLevel", max);
+      }, duration);
+    return false;
+  }
 
-      this.analyser = this.audioContext.createAnalyser();
+  /**
+   * 停止统计audiolevel
+   */
+  public stopAudioLevel (): void {
+    if (this.audioLevelTimerId) {
+      clearInterval(this.audioLevelTimerId);
+      this.audioLevelTimerId = 0;
+    }
+  }
+
+  protected playNode (): void {
+    if (this.audioContext && this.sourceNode && this.gainNode && this.analyser) {
+
       this.sourceNode.connect(this.analyser);
       
       this.gainNode.gain.value = this.audioVolume;
       this.analyser.connect(this.gainNode);
-
-      if (!this.analyser) {
-        this.analyser = this.audioContext.createAnalyser();
-      }
-      
-
-      if (!this.gainNode) {
-        this.gainNode = this.audioContext.createGain();
-      }
-
-      
 
       if (!this.audioMuted) {
         this.gainNode.connect(this.audioContext.destination);
@@ -114,8 +154,9 @@ export class BasePlayer extends EventEmitter<IAudioBufferPlayListener> {
           code: ErrorCode.ERROR_AUTOPLAY_FAIL,
           reason: "autoplay fail"
         });
+      } else {
+        this.playerState = PlayerState.Playing
       }
-      console.log(this.audioContext?.state);
     }, 100)
   }
 

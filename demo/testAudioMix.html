@@ -1,13 +1,15 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>AudioBufferPlayer Test</title>
+    <title>AudioMix Test</title>
     <script src="../dist/audioutil.js" ></script>
   </head>
   <body>
-    <audio id="audio" src="./test.mp3" playbackRate=2.0 controls preload="auto"></audio>
+    
 
     <p>
+      <audio id="audio" controls ></audio>
+      
       音量：<input id="volume" type="range" value="50" >
       静音：<input type="checkbox" id="mute" >
 
@@ -26,13 +28,19 @@
       <button id="stopBtn">停止</button>
       统计audiolevel<input type="checkbox" id="audioLevelBtn" >
     </p>
+
+    <p>
+      <button id="playMic" >获取麦克风</button>
+      <button id="stopMix" >停止混音</button>
+    </p>
   </body>
   <script>
-    let audioTrackBtn = document.getElementById("playAudioTrack");
+    let audioTrackBtn = document.getElementById("playMic");
     let range = document.getElementById("volume");
     let mute = document.getElementById("mute");
     // let rateRange = document.getElementById("rateRange");
     let audio = document.getElementById("audio");
+
     let audioBufferPlayer = new AudioBufferPlayer();
     audioBufferPlayer.on("autoPlayFail", () => {
       console.log("autoplay fail")
@@ -43,6 +51,8 @@
     audioBufferPlayer.on("audioLevel", (level) => {
       console.log('level:', level);
     })
+
+    let audioMix = new AudioMixer();
     var cacheArrayBuffer = null;
     
    
@@ -55,6 +65,7 @@
     let resumeBtn = document.getElementById("resumeBtn");
     let stopBtn = document.getElementById("stopBtn");
     let audioLevelBtn = document.getElementById("audioLevelBtn");
+    let stopMix = document.getElementById('stopMix');
 
     setInterval(() => {
       console.log(audioBufferPlayer.currentTime);
@@ -64,14 +75,25 @@
         audiomax.innerText = audioBufferPlayer.duration;
         audioRange.value = audioBufferPlayer.currentTime;
       }
-      
     }, 1000)
 
-    
 
-    // rateRange.onchange = () => {
-    //   audioBufferPlayer.playbackRate = Number(rateRange.value);
-    // }
+    audioTrackBtn.addEventListener("click", () => {
+      navigator.mediaDevices.getUserMedia({audio: true, video: true}).then((mediastream) => {
+        audioMix.startMix(mediastream, audioBufferPlayer).then((newMedia) => {
+          audio.srcobject = newMedia;
+          audio.play().then(() => {
+            console.log("play suc");
+          }).catch((err) => {
+            console.log('play fail')
+          })
+        }).catch((err) => {
+          console.log("mix error");
+        })
+      }).catch((err) => {
+        console.log('getUserMedia Error')
+      });
+    })
 
     function loadAudioFile(url) {
         var xhr = new XMLHttpRequest(); //通过XHR下载音频文件
@@ -123,6 +145,10 @@
         audioLevelBtn.stopAudioLevel();
       }
     }
+
+    stopMix.addEventListener('click', () => {
+      audioMix.stopMix();
+    })
 
   </script>
 </html>

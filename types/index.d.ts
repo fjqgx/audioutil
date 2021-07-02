@@ -1,5 +1,13 @@
-declare function event_aotuplay_fail(err:{ code: number, reason: string}): void;
+declare function event_aotuplay_fail(err:PlayerError): void;
 declare function event_ended(): void;
+declare function event_audiolevel(level: number): void;
+declare function event_error(err: PlayerError): void;
+
+
+export interface PlayerError {
+  code: ErrorCode;
+  reason: string;
+}
 
 
 export declare enum ErrorCode {
@@ -7,6 +15,19 @@ export declare enum ErrorCode {
   ERROR_AUTOPLAY_FAIL = 1001,               // 自动播放失败
 
   ERROR_NOT_ARRAYBUFFER = 1101,             // 播放内容不是ArrayBuffer
+  ERROR_PLAYTIME_ERROR = 1102,              // 播放开始的时间异常，负数或者超出音频长度
+}
+
+/**
+ * 播放器状态
+ */
+export enum PlayerState {
+  Init = 0,     // 初始化
+  Loading,      // 加载中
+  Playing,      // 播放中
+  Pause,        // 暂停
+  Stop,         // 停止
+  End,          // 播放完成123
 }
 
 /**
@@ -58,12 +79,17 @@ export declare class AudioBufferPlayer {
    */
   get currentTime (): number;
 
+  /**
+   * 获取播放器的当前状态
+   */
+  get state(): PlayerState;
 
   /**
    * 播放音频
-   * @param source  音频文件内容 
+   * @param source    音频文件内容 
+   * @param playTime  开始播放的时间，单位ms，默认是0
    */
-  play (source: ArrayBuffer): Promise<void>;
+  play (source: ArrayBuffer, playTime: number): Promise<void>;
 
 
   /**
@@ -81,12 +107,23 @@ export declare class AudioBufferPlayer {
    */
   resume (): void;
 
+  /**
+   * 开始统计audiolevel
+   * @param duration 默认值500，单位ms
+   */
+  startAudioLevel (duration: number): boolean;
+
+  /**
+   * 停止统计audiolevel
+   */
+  stopAudioLevel (): void;
 
   on (event: "autoPlayFail", listener: typeof event_aotuplay_fail): void;
   on (event: "ended", listener: typeof event_ended): void;
+  on (event: "audioLevel", listener: typeof event_audiolevel): void;
 }
 
-export declare class AudioPlayer {
+export declare class AudioMediaStreamPlayer {
 
   /**
    * 设置播放音量
@@ -111,11 +148,23 @@ export declare class AudioPlayer {
    */
   resume (): void;
 
-  play (source: MediaStream | HTMLAudioElement): boolean;
+  play (source: MediaStream): boolean;
 
   stop (): void;
 
+  /**
+   * 开始统计audiolevel
+   * @param duration 统计间隔时间，默认值500，单位ms
+   */
+   startAudioLevel (duration: number): boolean;
+
+   /**
+    * 停止统计audiolevel
+    */
+   stopAudioLevel (): void;
+
   on (event: "autoPlayFail", listener: typeof event_aotuplay_fail): void;
+  on (event: "audioLevel", listener: typeof event_audiolevel): void;
 }
 
 export declare class AudioMixer {
